@@ -136,6 +136,22 @@ h1{font-size:clamp(26px,3.6vw,34px);font-weight:800;margin:8px 0 2px;line-height
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sidebar .logo{background:#fff}}
 :root[data-theme="dark"] .sidebar .logo{background:#fff}
 .menu{display:flex;flex-direction:column;gap:4px}
+.tblwrap{overflow-x:auto}
+table.cmp{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+table.cmp th,table.cmp td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left}
+table.cmp thead th{font-size:13px;color:var(--muted);font-weight:700;background:var(--bg)}
+table.cmp thead th:first-child{border-radius:10px 0 0 10px}table.cmp thead th:last-child{border-radius:0 10px 10px 0}
+table.cmp tbody th{font-weight:500}
+table.cmp .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.cmp td.num{font-weight:700}
+table.cmp td.best{color:var(--green)}
+table.cmp .mini{display:inline-block;width:60px;height:6px;background:var(--track);border-radius:3px;margin-right:10px;vertical-align:middle;overflow:hidden}
+table.cmp .mini i{display:block;height:100%;border-radius:3px}
+table.cmp td.diff{color:var(--muted);font-weight:600}
+table.cmp tfoot th,table.cmp tfoot td{font-weight:800;border-bottom:0;background:var(--blue-soft)}
+table.cmp tfoot tr:first-child th{border-radius:10px 0 0 0}table.cmp tfoot tr:first-child td:last-child{border-radius:0 10px 0 0}
+table.cmp tfoot tr.pctrow th{border-radius:0 0 0 10px}table.cmp tfoot tr.pctrow td:last-child{border-radius:0 0 10px 0}
+.dotc{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.dotc.b{background:var(--blue)}.dotc.p{background:var(--purple)}
 .menu .grp{font-size:12px;font-weight:700;color:var(--muted);padding:12px 12px 4px}
 .tab.sub{padding-left:22px;font-size:13.5px}
 @media (max-width:860px){.menu .grp{display:none}.tab.sub{padding-left:12px}}
@@ -302,15 +318,16 @@ function donut(dist,total){
 }
 
 const stackLegend=()=>`<div class="sleg">${[0,1,2,3,4].map(i=>`<span><i style="background:${DCOL[i]}"></i>${i+1}</span>`).join('')}</div>`;
-let curTab=lsGet('bm-tab')||'resumen'; if(!/^(resumen|dist|fac-\d+)$/.test(curTab)) curTab='resumen';
+let curTab=lsGet('bm-tab')||'resumen'; if(!/^(resumen|dist|comp|fac-\d+)$/.test(curTab)) curTab='resumen';
 function showTab(t){curTab=t;lsSet('bm-tab',t);document.querySelectorAll('.tabp').forEach(p=>p.hidden=p.id!=='t-'+t);document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-current',b.dataset.t===t?'page':'false'));
   const V={resumen:['Satisfacción de la Capacitación','Experiencia de aprendizaje y preparación del colaborador'],fac:['Evaluación de facilitadores','Resultados por facilitador y competencia. Haz clic en un nombre para editarlo.'],dist:['Distribución de respuestas','Cuántas personas eligieron cada valor en las preguntas de contenido']};
+  if(FACNAMES.length>1) V.comp=['Tabla comparativa','Comparación de facilitadores por competencia'];
   FACNAMES.forEach((n,k)=>V['fac-'+k]=['Evaluación: '+n,'Resultados por competencia de '+n]);
   if(!V[t]){t='resumen';curTab=t;document.querySelectorAll('.tabp').forEach(p=>p.hidden=p.id!=='t-resumen');document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-current',b.dataset.t===t?'page':'false'));}
   const v=V[t];document.getElementById('vtitle').textContent=v[0];document.getElementById('vsub').textContent=v[1];window.scrollTo(0,0);}
 let FACNAMES=[];
 function buildMenu(){
-  const items=[['resumen','star','Resumen',''],...FACNAMES.map((n,k)=>['fac-'+k,'user',n,' sub']),['dist','pie','Distribución de respuestas','']];
+  const items=[['resumen','star','Resumen',''],...FACNAMES.map((n,k)=>['fac-'+k,'user',n,' sub']),...(FACNAMES.length>1?[['comp','chart','Tabla comparativa',' sub']]:[]),['dist','pie','Distribución de respuestas','']];
   document.getElementById('menu').innerHTML=items.map((it,i)=>(i===1&&FACNAMES.length?'<div class="grp">Facilitadores</div>':'')+`<button class="tab${it[3]}" data-t="${it[0]}"><span class="mi">${I[it[1]]}</span>${esc(it[2])}</button>`).join('');
   document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.t)));
 }
@@ -371,6 +388,19 @@ function render(data,src){
   ${(()=>{const fc=cmts([f]);return `<div class="panel comments solo"><div class="ph"><div class="ico sm">${I.msg}</div><div><h2>Comentarios de los participantes</h2><p>Sobre ${esc(f.name)}</p></div></div>
     ${fc.length?`<div class="clist">${fc.map(x=>`<blockquote>“${esc(x.c)}”</blockquote>`).join('')}</div>`:'<div class="cnone">Aún no hay comentarios con contenido.</div>'}</div>`})()}
   </div>`).join('')}
+  ${facs.length>1?(()=>{const labels=facs[0].items.map(i=>i.short);
+    const cell=(v,best,k)=>`<td class="num${best?' best':''}"><span class="mini"><i style="width:${(v-1)/4*100}%;background:${k%2?'var(--purple)':'var(--blue)'}"></i></span>${fmt(v)}</td>`;
+    const row=(lab,vals)=>{const mx=Math.max(...vals),mn=Math.min(...vals);return `<tr><th scope="row">${esc(lab)}</th>${vals.map((v,k)=>cell(v,mx>mn&&v===mx,k)).join('')}${facs.length===2?`<td class="num diff">${mx>mn?'+'+(mx-mn).toFixed(1)+' '+esc(facs[vals.indexOf(mx)].name.split(' ')[0]):'Igual'}</td>`:''}</tr>`;};
+    return `<div id="t-comp" class="tabp">
+    <div class="panel solo"><div class="ph"><div class="ico sm">${I.people}</div><div><h2>Tabla comparativa</h2><p>Promedio por competencia (escala 1–5). En verde, el valor más alto de cada fila.</p></div></div>
+    <div class="tblwrap"><table class="cmp">
+      <thead><tr><th scope="col">Competencia</th>${facs.map((f,k)=>`<th scope="col" class="num"><span class="dotc ${k%2?'p':'b'}"></span>${esc(f.name)}</th>`).join('')}${facs.length===2?'<th scope="col" class="num">Diferencia</th>':''}</tr></thead>
+      <tbody>${labels.map((lab,r)=>row(lab,facs.map(f=>f.items[r]?f.items[r].avg:NaN))).join('')}</tbody>
+      <tfoot>
+        ${row('Promedio general',facs.map(f=>f.avg))}
+        <tr class="pctrow"><th scope="row">% de satisfacción</th>${facs.map(f=>`<td class="num">${pct(f.avg)}</td>`).join('')}${facs.length===2?'<td></td>':''}</tr>
+      </tfoot>
+    </table></div></div></div>`;})():''}
   <div id="t-dist" class="tabp">
   <div class="grid2">
     <div class="panel">
